@@ -103,15 +103,16 @@ export async function runExport({
   onProgress,
   signal,
 }: RunOptions): Promise<{ blob: Blob; filename: string; count: number }> {
-  const list = rows.length ? rows : [null];
+  const list: (RecordRow | null)[] = rows.length ? rows : [null];
   const total = list.length;
+  const at = (i: number): RecordRow | null => list[i] ?? null;
 
   if (total === 1) {
-    const blob = await renderToBlob(template, fields, list[0], settings);
+    const blob = await renderToBlob(template, fields, at(0), settings);
     onProgress?.(1, 1);
     return {
       blob,
-      filename: `${fileNameFor(settings.filenamePattern, list[0], 0)}.${extFor(settings.format)}`,
+      filename: `${fileNameFor(settings.filenamePattern, at(0), 0)}.${extFor(settings.format)}`,
       count: 1,
     };
   }
