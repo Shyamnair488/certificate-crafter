@@ -22,11 +22,23 @@ export function EmailPanel() {
   const configured = Boolean(email.serviceId && email.templateId && email.publicKey);
 
   async function send(all: boolean) {
-    if (!template) return toast.error("Add a certificate template first.");
-    if (!fields.length) return toast.error("Place at least one field on the template.");
-    if (!configured) return toast.error("Add your service ID, template ID and public key.");
+    if (!template) {
+      toast.error("Add a certificate template first.");
+      return;
+    }
+    if (!fields.length) {
+      toast.error("Place at least one field on the template.");
+      return;
+    }
+    if (!configured) {
+      toast.error("Add your service ID, template ID and public key.");
+      return;
+    }
     const targets = all ? rows : previewRow ? [previewRow] : [];
-    if (!targets.length) return toast.error("Add at least one recipient row.");
+    if (!targets.length) {
+      toast.error("Add at least one recipient row.");
+      return;
+    }
 
     setSending(true);
     setLog([]);
