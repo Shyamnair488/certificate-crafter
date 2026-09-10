@@ -103,15 +103,16 @@ export async function runExport({
   onProgress,
   signal,
 }: RunOptions): Promise<{ blob: Blob; filename: string; count: number }> {
-  const list = rows.length ? rows : [null];
+  const list: (RecordRow | null)[] = rows.length ? rows : [null];
   const total = list.length;
+  const at = (i: number): RecordRow | null => list[i] ?? null;
 
   if (total === 1) {
-    const blob = await renderToBlob(template, fields, list[0], settings);
+    const blob = await renderToBlob(template, fields, at(0), settings);
     onProgress?.(1, 1);
     return {
       blob,
-      filename: `${fileNameFor(settings.filenamePattern, list[0], 0)}.${extFor(settings.format)}`,
+      filename: `${fileNameFor(settings.filenamePattern, at(0), 0)}.${extFor(settings.format)}`,
       count: 1,
     };
   }
@@ -120,7 +121,7 @@ export async function runExport({
     let doc: jsPDF | null = null;
     for (let i = 0; i < total; i += 1) {
       if (signal?.cancelled) throw new Error("cancelled");
-      const canvas = await renderCertificate(template, fields, list[i], settings.scale);
+      const canvas = await renderCertificate(template, fields, at(i), settings.scale);
       if (!doc) {
         doc = pdfWithPage(canvas, settings.quality);
       } else {
@@ -137,8 +138,8 @@ export async function runExport({
   const used = new Set<string>();
   for (let i = 0; i < total; i += 1) {
     if (signal?.cancelled) throw new Error("cancelled");
-    const blob = await renderToBlob(template, fields, list[i], settings);
-    let name = `${fileNameFor(settings.filenamePattern, list[i], i)}.${extFor(settings.format)}`;
+    const blob = await renderToBlob(template, fields, at(i), settings);
+    let name = `${fileNameFor(settings.filenamePattern, at(i), i)}.${extFor(settings.format)}`;
     if (used.has(name)) name = name.replace(/(\.\w+)$/, `-${i + 1}$1`);
     used.add(name);
     zip.file(name, blob);

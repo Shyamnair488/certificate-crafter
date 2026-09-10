@@ -32,7 +32,8 @@ export function DataPanel() {
     try {
       const buffer = await file.arrayBuffer();
       const book = XLSX.read(buffer, { type: "array" });
-      const sheet = book.Sheets[book.SheetNames[0]];
+      const first = book.SheetNames[0];
+      const sheet = first ? book.Sheets[first] : undefined;
       if (!sheet) throw new Error("That file has no sheets.");
       const json = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: "" });
       if (!json.length) throw new Error("No rows found in that file.");
