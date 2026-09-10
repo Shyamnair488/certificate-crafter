@@ -30,16 +30,6 @@ Ensure that seemles work or usage experience is tere and superb. Engaging custom
 
 In case of any specif guidence or input help it should also have a sample or example text if needed and even a guide area should be there in order to the user can  go through it and view how its worked or work withthis app.
 
-This project was built with [Lovable](https://lovable.dev).
-
-## Build with Lovable
-
-Continue developing this project in the [Lovable editor](https://lovable.dev/projects/08bc7e0f-259c-4e1f-af71-fb3213736ace).
-
-- **Ship faster**: describe what you want to build and Lovable handles the code.
-- **Stay in sync**: every change made in Lovable is committed straight to this repository.
-- **Full ownership**: this code is yours. Push to `main` on GitHub and your changes sync back into Lovable, ready for your next prompt.
-
 ## Development
 
 Prefer working locally? You need Node.js and npm — [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating).
