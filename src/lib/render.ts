@@ -1,5 +1,7 @@
 import { ensureFontsReady } from "./fonts";
-import type { CertField, RecordRow, TemplateAsset } from "./types";
+import { qrDataUrl } from "./qr";
+import type { CertElement, CertField, RecordRow, TemplateAsset } from "./types";
+
 
 const imageCache = new Map<string, HTMLImageElement>();
 
@@ -98,9 +100,61 @@ export function drawFields(
   }
 }
 
+/** Fill {{column}} placeholders inside a QR payload. */
+export function elementText(text: string, row: RecordRow | null) {
+  return text.replace(/\{\{?\s*(\w+)\s*\}?\}/g, (_m, key: string) =>
+    (row?.[key] ?? "").toString(),
+  );
+}
+
+export async function resolveElementSource(
+  element: CertElement,
+  row: RecordRow | null,
+): Promise<string> {
+  if (element.kind === "qr") return qrDataUrl(elementText(element.qrText, row));
+  return element.src;
+}
+
+export async function drawElements(
+  ctx: CanvasRenderingContext2D,
+  template: TemplateAsset,
+  elements: CertElement[],
+  row: RecordRow | null,
+  scale: number,
+) {
+  for (const el of elements) {
+    let src: string;
+    try {
+      src = await resolveElementSource(el, row);
+    } catch {
+      continue;
+    }
+    if (!src) continue;
+    let img: HTMLImageElement;
+    try {
+      img = await loadImage(src);
+    } catch {
+      continue;
+    }
+    const w = el.width * template.width * scale;
+    const ratio = img.naturalHeight / (img.naturalWidth || 1);
+    const h = el.kind === "qr" ? w : w * ratio;
+    const cx = el.x * template.width * scale;
+    const cy = el.y * template.height * scale;
+
+    ctx.save();
+    ctx.globalAlpha = el.opacity;
+    ctx.translate(cx, cy);
+    if (el.rotation) ctx.rotate((el.rotation * Math.PI) / 180);
+    ctx.drawImage(img, -w / 2, -h / 2, w, h);
+    ctx.restore();
+  }
+}
+
 export async function renderCertificate(
   template: TemplateAsset,
   fields: CertField[],
+  elements: CertElement[],
   row: RecordRow | null,
   scale = 2,
 ): Promise<HTMLCanvasElement> {
@@ -123,6 +177,8 @@ export async function renderCertificate(
   ctx.fillStyle = "#ffffff";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+  await drawElements(ctx, template, elements, row, scale);
   drawFields(ctx, template, fields, row, scale);
   return canvas;
 }
+
