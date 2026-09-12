@@ -114,56 +114,85 @@ const breathe = () => new Promise((r) => setTimeout(r, 0));
 export async function runExport({
   template,
   fields,
+  elements,
   rows,
   settings,
   onProgress,
   signal,
-}: RunOptions): Promise<{ blob: Blob; filename: string; count: number }> {
+}: RunOptions): Promise<RunResult> {
   const list: (RecordRow | null)[] = rows.length ? rows : [null];
   const total = list.length;
   const at = (i: number): RecordRow | null => list[i] ?? null;
+  const failed: { index: number; error: string }[] = [];
+  const note = (i: number, err: unknown) =>
+    failed.push({ index: i, error: err instanceof Error ? err.message : "Render failed" });
 
   if (total === 1) {
-    const blob = await renderToBlob(template, fields, at(0), settings);
-    onProgress?.(1, 1);
+    const blob = await renderToBlob(template, fields, elements, at(0), settings);
+    onProgress?.(1, 0, 1);
     return {
       blob,
       filename: `${fileNameFor(settings.filenamePattern, at(0), 0)}.${extFor(settings.format)}`,
       count: 1,
+      failed,
     };
   }
 
   if (settings.format === "pdf" && settings.mode === "merged-pdf") {
     let doc: jsPDF | null = null;
+    let made = 0;
     for (let i = 0; i < total; i += 1) {
       if (signal?.cancelled) throw new Error("cancelled");
-      const canvas = await renderCertificate(template, fields, at(i), settings.scale);
-      if (!doc) {
-        doc = pdfWithPage(canvas, settings.quality);
-      } else {
-        doc.addPage([canvas.width, canvas.height], canvas.width >= canvas.height ? "landscape" : "portrait");
-        doc.addImage(canvas.toDataURL("image/jpeg", settings.quality), "JPEG", 0, 0, canvas.width, canvas.height);
+      try {
+        const canvas = await renderCertificate(template, fields, elements, at(i), settings.scale);
+        if (!doc) {
+          doc = pdfWithPage(canvas, settings.quality);
+        } else {
+          doc.addPage(
+            [canvas.width, canvas.height],
+            canvas.width >= canvas.height ? "landscape" : "portrait",
+          );
+          doc.addImage(
+            canvas.toDataURL("image/jpeg", settings.quality),
+            "JPEG",
+            0,
+            0,
+            canvas.width,
+            canvas.height,
+          );
+        }
+        made += 1;
+      } catch (err) {
+        note(i, err);
       }
-      onProgress?.(i + 1, total);
+      onProgress?.(i + 1 - failed.length, failed.length, total);
       await breathe();
     }
-    return { blob: doc!.output("blob"), filename: "certificates.pdf", count: total };
+    if (!doc) throw new Error("Every certificate failed to render.");
+    return { blob: doc.output("blob"), filename: "certificates.pdf", count: made, failed };
   }
 
   const zip = new JSZip();
   const used = new Set<string>();
+  let made = 0;
   for (let i = 0; i < total; i += 1) {
     if (signal?.cancelled) throw new Error("cancelled");
-    const blob = await renderToBlob(template, fields, at(i), settings);
-    let name = `${fileNameFor(settings.filenamePattern, at(i), i)}.${extFor(settings.format)}`;
-    if (used.has(name)) name = name.replace(/(\.\w+)$/, `-${i + 1}$1`);
-    used.add(name);
-    zip.file(name, blob);
-    onProgress?.(i + 1, total);
+    try {
+      const blob = await renderToBlob(template, fields, elements, at(i), settings);
+      let name = `${fileNameFor(settings.filenamePattern, at(i), i)}.${extFor(settings.format)}`;
+      if (used.has(name)) name = name.replace(/(\.\w+)$/, `-${i + 1}$1`);
+      used.add(name);
+      zip.file(name, blob);
+      made += 1;
+    } catch (err) {
+      note(i, err);
+    }
+    onProgress?.(made, failed.length, total);
     await breathe();
   }
+  if (!made) throw new Error("Every certificate failed to render.");
   const blob = await zip.generateAsync({ type: "blob", compression: "DEFLATE" });
-  return { blob, filename: "certificates.zip", count: total };
+  return { blob, filename: "certificates.zip", count: made, failed };
 }
 
 export function blobToBase64(blob: Blob): Promise<string> {
