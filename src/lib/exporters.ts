@@ -1,7 +1,14 @@
 import JSZip from "jszip";
 import { jsPDF } from "jspdf";
 import { renderCertificate } from "./render";
-import type { CertField, ExportFormat, ExportSettings, RecordRow, TemplateAsset } from "./types";
+import type {
+  CertElement,
+  CertField,
+  ExportFormat,
+  ExportSettings,
+  RecordRow,
+  TemplateAsset,
+} from "./types";
 
 export function mimeFor(format: ExportFormat) {
   return format === "png" ? "image/png" : format === "jpeg" ? "image/jpeg" : "application/pdf";
@@ -75,10 +82,11 @@ export function downloadBlob(blob: Blob, filename: string) {
 export async function renderToBlob(
   template: TemplateAsset,
   fields: CertField[],
+  elements: CertElement[],
   row: RecordRow | null,
   settings: ExportSettings,
 ): Promise<Blob> {
-  const canvas = await renderCertificate(template, fields, row, settings.scale);
+  const canvas = await renderCertificate(template, fields, elements, row, settings.scale);
   if (settings.format === "pdf") return canvasToPdfBlob(canvas, settings.quality);
   return canvasToBlob(canvas, settings.format, settings.quality);
 }
@@ -86,10 +94,18 @@ export async function renderToBlob(
 export interface RunOptions {
   template: TemplateAsset;
   fields: CertField[];
+  elements: CertElement[];
   rows: RecordRow[];
   settings: ExportSettings;
-  onProgress?: (done: number, total: number) => void;
+  onProgress?: (done: number, failed: number, total: number) => void;
   signal?: { cancelled: boolean };
+}
+
+export interface RunResult {
+  blob: Blob;
+  filename: string;
+  count: number;
+  failed: { index: number; error: string }[];
 }
 
 /** Yield to the browser so the progress animation keeps running smoothly. */
