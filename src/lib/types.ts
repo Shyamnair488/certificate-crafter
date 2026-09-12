@@ -57,3 +57,60 @@ export interface EmailSettings {
   emailColumn: string;
   attachFormat: ExportFormat;
 }
+
+/* ---------- Visual elements (logos, signatures, QR codes) ---------- */
+
+export type ElementKind = "image" | "signature" | "qr";
+
+export interface CertElement {
+  id: string;
+  kind: ElementKind;
+  label: string;
+  /** data URL for image/signature elements */
+  src: string;
+  /** QR payload, supports {{column}} placeholders */
+  qrText: string;
+  /** centre position, 0..1 of template size */
+  x: number;
+  y: number;
+  /** width as a fraction of template width */
+  width: number;
+  opacity: number;
+  rotation: number;
+}
+
+export interface SavedSignature {
+  id: string;
+  name: string;
+  src: string;
+}
+
+/* ---------- Dashboard + delivery tracking ---------- */
+
+export interface BatchRecord {
+  id: string;
+  createdAt: number;
+  name: string;
+  format: ExportFormat;
+  mode: ExportMode;
+  total: number;
+  generated: number;
+  failed: number;
+  cancelled: boolean;
+  sent: number;
+  sendFailed: number;
+  verified: number;
+}
+
+export type DeliveryStatus = "pending" | "sending" | "sent" | "failed";
+
+export interface DeliveryEntry {
+  id: string;
+  rowId: string;
+  to: string;
+  name: string;
+  status: DeliveryStatus;
+  error?: string;
+  at: number;
+}
+
