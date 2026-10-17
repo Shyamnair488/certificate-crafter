@@ -17,3 +17,10 @@
 - [ ] Email delivery tracking with retry of failed recipients
 - [ ] Batch progress: completed / failed / remaining + cancel
 - [ ] Test all of the above end to end
+
+## Review feedback (Oct 17)
+- [ ] Save/load project as JSON file
+- [ ] Email safeguards: validation, status table + retry, throttle delay, limit warning
+- [ ] Case-insensitive/trimmed column matching on import
+- [ ] Recipient stepper in preview
+- [ ] noscript message
