@@ -27,11 +27,11 @@ export function EmailPanel() {
   const configured = Boolean(email.serviceId && email.templateId && email.publicKey);
   const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-  async function deliver(targets: RecordRow[], entries: DeliveryEntry[]) {
-    if (!template) return toast.error("Add a certificate template first.");
-    if (!fields.length && !elements.length) return toast.error("Place at least one field on the template.");
-    if (!configured) return toast.error("Add your service ID, template ID and public key.");
-    if (!targets.length) return toast.error("Add at least one recipient row.");
+  async function deliver(targets: RecordRow[], entries: DeliveryEntry[]): Promise<void> {
+    if (!template) { toast.error("Add a certificate template first."); return; }
+    if (!fields.length && !elements.length) { toast.error("Place at least one field on the template."); return; }
+    if (!configured) { toast.error("Add your service ID, template ID and public key."); return; }
+    if (!targets.length) { toast.error("Add at least one recipient row."); return; }
     if (targets.length > 200)
       toast.warning(`Sending ${targets.length} emails — EmailJS free plans allow about 200 per month.`);
     setSending(true);
@@ -71,7 +71,7 @@ export function EmailPanel() {
       id: Math.random().toString(36).slice(2, 10),
       rowId: row.__id,
       to: (row[email.emailColumn] ?? "").toString().trim(),
-      name: (row.name ?? row[fields[0]?.key ?? ""] ?? "").toString(),
+      name: (row["name"] ?? row[fields[0]?.key ?? ""] ?? "").toString(),
       status: "pending",
       at: Date.now(),
     };
