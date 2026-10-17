@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import mark from "@/assets/platepress-mark.png";
 import { useStudio } from "@/lib/store";
@@ -9,6 +10,9 @@ import { FieldsPanel } from "@/components/studio/fields-panel";
 import { DataPanel } from "@/components/studio/data-panel";
 import { ExportPanel } from "@/components/studio/export-panel";
 import { EmailPanel } from "@/components/studio/email-panel";
+import { ElementsPanel } from "@/components/studio/elements-panel";
+import { PreflightPanel } from "@/components/studio/preflight-panel";
+import { DashboardPanel } from "@/components/studio/dashboard-panel";
 import { ProgressOverlay } from "@/components/studio/progress-overlay";
 
 export const Route = createFileRoute("/")({
@@ -36,9 +40,12 @@ export const Route = createFileRoute("/")({
 const STEPS = [
   { id: "template", n: "01", label: "Template", hint: "Mount your artwork" },
   { id: "fields", n: "02", label: "Fields", hint: "Place and style text" },
-  { id: "data", n: "03", label: "Recipients", hint: "Type or import a roster" },
-  { id: "export", n: "04", label: "Export", hint: "PDF, PNG, JPEG or ZIP" },
-  { id: "email", n: "05", label: "Email", hint: "Send with attachments" },
+  { id: "elements", n: "03", label: "Logos & signatures", hint: "Artwork, signatures, QR" },
+  { id: "data", n: "04", label: "Recipients", hint: "Type or import a roster" },
+  { id: "preflight", n: "05", label: "Preflight", hint: "Data & long-name checks" },
+  { id: "export", n: "06", label: "Export", hint: "PDF, PNG, JPEG or ZIP" },
+  { id: "email", n: "07", label: "Email", hint: "Send and track delivery" },
+  { id: "dashboard", n: "08", label: "Dashboard", hint: "Batches and statistics" },
 ] as const;
 
 type StepId = (typeof STEPS)[number]["id"];
@@ -51,7 +58,38 @@ function Studio() {
   const rows = useStudio((s) => s.rows);
   const previewIndex = useStudio((s) => s.previewIndex);
   const setPreviewIndex = useStudio((s) => s.setPreviewIndex);
+  const elements = useStudio((s) => s.elements);
+  const hydrate = useStudio((s) => s.hydrate);
   const run = useRun();
+  const fileRef = useRef<HTMLInputElement>(null);
+  useEffect(() => hydrate(), [hydrate]);
+
+  function saveProject() {
+    const s = useStudio.getState();
+    const data = { app: "platepress", v: 1, template: s.template, fields: s.fields, elements: s.elements, rows: s.rows, exportSettings: s.exportSettings };
+    const blob = new Blob([JSON.stringify(data)], { type: "application/json" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "platepress-project.json";
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 30000);
+    toast.success("Project saved (email keys are never included).");
+  }
+  async function loadProject(file?: File) {
+    if (!file) return;
+    try {
+      const d = JSON.parse(await file.text());
+      if (d?.app !== "platepress") throw new Error();
+      useStudio.setState({
+        template: d.template ?? null, fields: d.fields ?? [], elements: d.elements ?? [],
+        rows: d.rows ?? [], previewIndex: 0,
+        ...(d.exportSettings ? { exportSettings: d.exportSettings } : {}),
+      });
+      toast.success("Project loaded.");
+    } catch {
+      toast.error("That file isn't a Platepress project.");
+    }
+  }
 
   const row = rows[previewIndex] ?? null;
   const active = STEPS.find((s) => s.id === step)!;
@@ -127,6 +165,11 @@ function Studio() {
               device.
             </p>
           </div>
+          <div className="mt-2 grid grid-cols-2 gap-2">
+            <button onClick={saveProject} className="rounded-md border border-border px-3 py-2 text-xs font-medium hover:bg-secondary">Save project</button>
+            <button onClick={() => fileRef.current?.click()} className="rounded-md border border-border px-3 py-2 text-xs font-medium hover:bg-secondary">Open project</button>
+            <input ref={fileRef} type="file" accept="application/json,.json" className="sr-only" onChange={(e) => { void loadProject(e.target.files?.[0]); e.target.value = ""; }} />
+          </div>
           <Link
             to="/guide"
             className="mt-2 block rounded-md border border-border px-3 py-2 text-center text-xs font-medium transition-colors hover:bg-secondary"
@@ -171,7 +214,7 @@ function Studio() {
             {template ? (
               <div className="space-y-3">
                 <div className="rounded-lg border border-border bg-card p-3 panel-shadow lg:p-4">
-                  <CanvasStage template={template} fields={fields} row={row} />
+                  <CanvasStage template={template} fields={fields} elements={elements} row={row} />
                 </div>
                 <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 panel-shadow">
                   <span className="label-mono">Proof</span>
@@ -217,7 +260,10 @@ function Studio() {
             <div className="rounded-lg border border-border bg-card p-4 panel-shadow lg:sticky lg:top-[5.5rem] lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto press-scroll">
               {step === "template" && <TemplatePanel />}
               {step === "fields" && <FieldsPanel />}
+              {step === "elements" && <ElementsPanel />}
               {step === "data" && <DataPanel />}
+              {step === "preflight" && <PreflightPanel />}
+              {step === "dashboard" && <DashboardPanel />}
               {step === "export" && <ExportPanel />}
               {step === "email" && <EmailPanel />}
             </div>
@@ -229,6 +275,7 @@ function Studio() {
         open={run.running}
         label={run.label}
         done={run.done}
+        failed={run.failed}
         total={run.total || Math.max(1, rows.length)}
         onCancel={run.cancel}
       />

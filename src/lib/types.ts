@@ -110,7 +110,7 @@ export interface DeliveryEntry {
   to: string;
   name: string;
   status: DeliveryStatus;
-  error?: string;
+  error?: string | undefined;
   at: number;
 }
 

@@ -1,9 +1,9 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { useStudio } from "@/lib/store";
 import { fillTemplate, sendCertificateEmail, type SendResult } from "@/lib/email";
 import { blobToBase64, extFor, fileNameFor, renderToBlob } from "@/lib/exporters";
-import type { ExportFormat } from "@/lib/types";
+import type { DeliveryEntry, ExportFormat, RecordRow } from "@/lib/types";
 
 export function EmailPanel() {
   const email = useStudio((s) => s.email);
@@ -14,62 +14,101 @@ export function EmailPanel() {
   const settings = useStudio((s) => s.exportSettings);
   const previewIndex = useStudio((s) => s.previewIndex);
 
+  const elements = useStudio((s) => s.elements);
+  const delivery = useStudio((s) => s.delivery);
+  const setDelivery = useStudio((s) => s.setDelivery);
+  const updateDelivery = useStudio((s) => s.updateDelivery);
   const [sending, setSending] = useState(false);
-  const [log, setLog] = useState<SendResult[]>([]);
+  const [delay, setDelay] = useState(1);
   const [showPreview, setShowPreview] = useState(false);
+  const stopRef = useRef(false);
 
   const previewRow = rows[previewIndex] ?? rows[0] ?? null;
   const configured = Boolean(email.serviceId && email.templateId && email.publicKey);
+  const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-  async function send(all: boolean) {
-    if (!template) {
-      toast.error("Add a certificate template first.");
-      return;
-    }
-    if (!fields.length) {
-      toast.error("Place at least one field on the template.");
-      return;
-    }
-    if (!configured) {
-      toast.error("Add your service ID, template ID and public key.");
-      return;
-    }
-    const targets = all ? rows : previewRow ? [previewRow] : [];
-    if (!targets.length) {
-      toast.error("Add at least one recipient row.");
-      return;
-    }
-
+  async function deliver(targets: RecordRow[], entries: DeliveryEntry[]): Promise<void> {
+    if (!template) { toast.error("Add a certificate template first."); return; }
+    if (!fields.length && !elements.length) { toast.error("Place at least one field on the template."); return; }
+    if (!configured) { toast.error("Add your service ID, template ID and public key."); return; }
+    if (!targets.length) { toast.error("Add at least one recipient row."); return; }
+    if (targets.length > 200)
+      toast.warning(`Sending ${targets.length} emails — EmailJS free plans allow about 200 per month.`);
     setSending(true);
-    setLog([]);
-    const results: SendResult[] = [];
-    try {
-      for (let i = 0; i < targets.length; i += 1) {
-        const row = targets[i]!;
-        const blob = await renderToBlob(template, fields, row, {
-          ...settings,
-          format: email.attachFormat,
-        });
+    stopRef.current = false;
+    let ok = 0;
+    let bad = 0;
+    for (let i = 0; i < targets.length; i += 1) {
+      if (stopRef.current) break;
+      const row = targets[i]!;
+      const entry = entries[i]!;
+      if (!EMAIL_RE.test(entry.to)) {
+        updateDelivery(entry.id, { status: "failed", error: "Invalid or missing email address", at: Date.now() });
+        bad += 1;
+        continue;
+      }
+      updateDelivery(entry.id, { status: "sending", error: undefined, at: Date.now() });
+      try {
+        const blob = await renderToBlob(template, fields, elements, row, { ...settings, format: email.attachFormat });
         const base64 = await blobToBase64(blob);
         const name = `${fileNameFor(settings.filenamePattern, row, i)}.${extFor(email.attachFormat)}`;
-        const res = await sendCertificateEmail(email, row, base64, name);
-        results.push(res);
-        setLog([...results]);
+        const res: SendResult = await sendCertificateEmail(email, row, base64, name);
+        updateDelivery(entry.id, { status: res.ok ? "sent" : "failed", error: res.error, at: Date.now() });
+        if (res.ok) ok += 1; else bad += 1;
+      } catch (err) {
+        bad += 1;
+        updateDelivery(entry.id, { status: "failed", error: err instanceof Error ? err.message : "Failed", at: Date.now() });
       }
-      const ok = results.filter((r) => r.ok).length;
-      if (ok === results.length) toast.success(`${ok} email${ok === 1 ? "" : "s"} sent.`);
-      else toast.error(`${ok} of ${results.length} sent — see the delivery log.`);
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Sending failed.");
-    } finally {
-      setSending(false);
+      if (delay && i < targets.length - 1) await new Promise((r) => setTimeout(r, delay * 1000));
     }
+    setSending(false);
+    if (!bad) toast.success(`${ok} email${ok === 1 ? "" : "s"} sent.`);
+    else toast.error(`${ok} sent, ${bad} failed — use “Retry failed”.`);
   }
+
+  function entryFor(row: RecordRow): DeliveryEntry {
+    return {
+      id: Math.random().toString(36).slice(2, 10),
+      rowId: row.__id,
+      to: (row[email.emailColumn] ?? "").toString().trim(),
+      name: (row["name"] ?? row[fields[0]?.key ?? ""] ?? "").toString(),
+      status: "pending",
+      at: Date.now(),
+    };
+  }
+
+  function send(all: boolean) {
+    const targets = all ? rows : previewRow ? [previewRow] : [];
+    const entries = targets.map(entryFor);
+    setDelivery(entries);
+    void deliver(targets, entries);
+  }
+
+  function retryFailed() {
+    const failed = delivery.filter((d) => d.status === "failed");
+    const targets: RecordRow[] = [];
+    const entries: DeliveryEntry[] = [];
+    for (const d of failed) {
+      const row = rows.find((r) => r.__id === d.rowId);
+      if (!row) continue;
+      const fresh = { ...d, to: (row[email.emailColumn] ?? "").toString().trim(), status: "pending" as const };
+      updateDelivery(d.id, fresh);
+      targets.push(row);
+      entries.push(fresh);
+    }
+    void deliver(targets, entries);
+  }
+
+  const counts = {
+    sent: delivery.filter((d) => d.status === "sent").length,
+    failed: delivery.filter((d) => d.status === "failed").length,
+    pending: delivery.filter((d) => d.status === "pending" || d.status === "sending").length,
+  };
 
   return (
     <div className="space-y-4">
       <div>
-        <div className="label-mono">Step 5 — Email delivery (optional)</div>
+        <div className="label-mono">Email delivery (optional)</div>
         <p className="mt-1 text-[12px] leading-relaxed text-muted-foreground">
           Everything is sent straight from your browser using your own EmailJS account. Your keys are
           never stored or uploaded anywhere.
@@ -207,15 +246,36 @@ export function EmailPanel() {
         </button>
       </div>
 
-      {log.length > 0 && (
+      <label className="block">
+        <span className="label-mono">Delay between emails — {delay}s</span>
+        <input type="range" min={0} max={10} value={delay} onChange={(e) => setDelay(Number(e.target.value))} className="mt-1 w-full accent-[var(--brand)]" />
+      </label>
+
+      {sending && (
+        <button onClick={() => (stopRef.current = true)} className="w-full rounded-md border border-border px-4 py-2 text-xs font-medium hover:bg-secondary">
+          Stop sending
+        </button>
+      )}
+
+      {delivery.length > 0 && (
         <div className="rounded-md border border-border bg-paper p-2">
-          <div className="label-mono">Delivery log</div>
-          <ul className="mt-1 space-y-1 text-[11px]">
-            {log.map((r, i) => (
-              <li key={`${r.to}-${i}`} className="flex items-start justify-between gap-2">
-                <span className="font-mono">{r.to}</span>
-                <span className={r.ok ? "text-accent" : "text-destructive"}>
-                  {r.ok ? "sent" : r.error}
+          <div className="flex items-center justify-between">
+            <span className="label-mono">Delivery tracking</span>
+            {counts.failed > 0 && !sending && (
+              <button onClick={retryFailed} className="text-[11px] font-medium text-primary hover:underline">
+                Retry failed ({counts.failed})
+              </button>
+            )}
+          </div>
+          <div className="mt-1 text-[11px] text-muted-foreground">
+            {counts.sent} sent · {counts.failed} failed · {counts.pending} pending
+          </div>
+          <ul className="mt-2 max-h-60 space-y-1 overflow-auto text-[11px]">
+            {delivery.map((d) => (
+              <li key={d.id} className="flex items-start justify-between gap-2">
+                <span className="min-w-0 truncate font-mono">{d.to || "—"}</span>
+                <span className={d.status === "sent" ? "text-accent" : d.status === "failed" ? "text-destructive" : "text-muted-foreground"} title={d.error}>
+                  {d.status === "failed" ? `failed${d.error ? ": " + d.error.slice(0, 40) : ""}` : d.status}
                 </span>
               </li>
             ))}

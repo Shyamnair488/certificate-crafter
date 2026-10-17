@@ -9,11 +9,18 @@
 
 ## New feature round
 
-- [ ] Certificate dashboard with batch history + generated/sent/failed/verified stats
-- [ ] Visual editor: drag-and-drop logos, signatures, QR codes alongside text fields
-- [ ] Signature library: save multiple signatures, auto-place on batches
-- [ ] Duplicate & error detection for imported CSV/Excel data
-- [ ] Long-name testing (short/medium/long) with overflow + overlap detection
-- [ ] Email delivery tracking with retry of failed recipients
-- [ ] Batch progress: completed / failed / remaining + cancel
-- [ ] Test all of the above end to end
+- [x] Certificate dashboard with batch history + generated/sent/failed/verified stats
+- [x] Visual editor: drag-and-drop logos, signatures, QR codes alongside text fields
+- [x] Signature library: save multiple signatures, auto-place on batches
+- [x] Duplicate & error detection for imported CSV/Excel data
+- [x] Long-name testing (short/medium/long) with overflow + overlap detection
+- [x] Email delivery tracking with retry of failed recipients
+- [x] Batch progress: completed / failed / remaining + cancel
+- [x] Test all of the above end to end
+
+## Review feedback (Oct 17)
+- [x] Save/load project as JSON file
+- [x] Email safeguards: validation, status table + retry, throttle delay, limit warning
+- [x] Case-insensitive/trimmed column matching on import
+- [x] Recipient stepper in preview
+- [x] noscript message
