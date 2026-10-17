@@ -37,13 +37,23 @@ export function DataPanel() {
       if (!sheet) throw new Error("That file has no sheets.");
       const json = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: "" });
       if (!json.length) throw new Error("No rows found in that file.");
-      const parsed = json.map((r) => {
-        const values: Record<string, string> = {};
-        for (const [k, v] of Object.entries(r)) {
-          values[String(k).trim()] = v == null ? "" : String(v).trim();
-        }
-        return makeRow(values);
-      });
+      const norm = (k: string) => k.replace(/^\uFEFF/, "").trim().toLowerCase().replace(/[\s_-]+/g, "");
+      const known = new Map<string, string>();
+      for (const f of useStudio.getState().fields) known.set(norm(f.key), f.key);
+      const emailKey = useStudio.getState().email.emailColumn;
+      known.set(norm(emailKey), emailKey);
+      const parsed = json
+        .map((r) => {
+          const values: Record<string, string> = {};
+          for (const [k, v] of Object.entries(r)) {
+            const clean = String(k).replace(/^\uFEFF/, "").trim();
+            values[known.get(norm(clean)) ?? clean] = v == null ? "" : String(v).trim();
+          }
+          return values;
+        })
+        .filter((v) => Object.values(v).some((x) => x))
+        .map((v) => makeRow(v));
+      if (!parsed.length) throw new Error("No rows found in that file.");
       setRows(parsed);
       toast.success(`${parsed.length} records imported.`);
     } catch (err) {
