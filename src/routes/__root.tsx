@@ -122,6 +122,7 @@ function RootShell({ children }: { children: ReactNode }) {
       </head>
       <body>
         {children}
+        <noscript>Platepress is a bulk certificate studio that runs in your browser. Please enable JavaScript to design, personalise and export certificates.</noscript>
         <Scripts />
       </body>
     </html>
