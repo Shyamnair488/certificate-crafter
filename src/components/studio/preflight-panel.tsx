@@ -13,7 +13,7 @@ export function PreflightPanel() {
   const emailColumn = useStudio((s) => s.email.emailColumn);
   const removeRows = useStudio((s) => s.removeRows);
   const dedupeRows = useStudio((s) => s.dedupeRows);
-  const [sample, setSample] = useState(NAME_SAMPLES[2]!.id);
+  const [sample, setSample] = useState("long");
 
   const issues = useMemo(
     () => validateRows(rows, fields, emailColumn),
@@ -28,7 +28,7 @@ export function PreflightPanel() {
   const warnings = issues.length - errors;
   const layoutErrors = findings.filter((f) => f.level === "error").length;
 
-  const activeSample = NAME_SAMPLES.find((s) => s.id === sample) ?? NAME_SAMPLES[0]!;
+  const activeSample = NAME_SAMPLES.find((s) => s.id === sample) ?? { id: "short", label: "Short", value: "Li Wu" };
   const testRow = useMemo(() => {
     const values: Record<string, string> = {};
     for (const f of fields) values[f.key] = activeSample.value;

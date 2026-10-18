@@ -3,6 +3,7 @@ import { toast } from "sonner";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import mark from "@/assets/platepress-mark.png";
 import { useStudio } from "@/lib/store";
+import { parseProject } from "@/lib/project";
 import { useRun } from "@/lib/run-store";
 import { CanvasStage } from "@/components/studio/canvas-stage";
 import { TemplatePanel } from "@/components/studio/template-panel";
@@ -78,11 +79,10 @@ function Studio() {
   async function loadProject(file?: File) {
     if (!file) return;
     try {
-      const d = JSON.parse(await file.text());
-      if (d?.app !== "platepress") throw new Error();
+      const d = parseProject(JSON.parse(await file.text()));
       useStudio.setState({
         template: d.template ?? null, fields: d.fields ?? [], elements: d.elements ?? [],
-        rows: d.rows ?? [], previewIndex: 0,
+        rows: d.rows ?? [], previewIndex: 0, selectedId: null, selectedElementId: null,
         ...(d.exportSettings ? { exportSettings: d.exportSettings } : {}),
       });
       toast.success("Project loaded.");
@@ -92,7 +92,7 @@ function Studio() {
   }
 
   const row = rows[previewIndex] ?? null;
-  const active = STEPS.find((s) => s.id === step)!;
+  const active = STEPS.find((s) => s.id === step) ?? STEPS[0];
 
   const nav = (
     <nav className="flex flex-col gap-1">
@@ -210,7 +210,7 @@ function Studio() {
         </header>
 
         <main className="grid gap-5 p-4 lg:grid-cols-[minmax(0,1fr)_400px] lg:p-6">
-          <section className="order-2 lg:order-1">
+          <section className="order-2 min-w-0 lg:order-1">
             {template ? (
               <div className="space-y-3">
                 <div className="rounded-lg border border-border bg-card p-3 panel-shadow lg:p-4">
@@ -256,7 +256,7 @@ function Studio() {
             )}
           </section>
 
-          <aside className="order-1 lg:order-2">
+          <aside className="order-1 min-w-0 lg:order-2">
             <div className="rounded-lg border border-border bg-card p-4 panel-shadow lg:sticky lg:top-[5.5rem] lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto press-scroll">
               {step === "template" && <TemplatePanel />}
               {step === "fields" && <FieldsPanel />}

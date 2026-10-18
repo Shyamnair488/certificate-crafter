@@ -126,9 +126,12 @@ export async function runExport({
   const failed: { index: number; error: string }[] = [];
   const note = (i: number, err: unknown) =>
     failed.push({ index: i, error: err instanceof Error ? err.message : "Render failed" });
+  const checkCancelled = () => { if (signal?.cancelled) throw new Error("cancelled"); };
+  checkCancelled();
 
   if (total === 1) {
     const blob = await renderToBlob(template, fields, elements, at(0), settings);
+    checkCancelled();
     onProgress?.(1, 0, 1);
     return {
       blob,
@@ -168,6 +171,7 @@ export async function runExport({
       onProgress?.(i + 1 - failed.length, failed.length, total);
       await breathe();
     }
+    checkCancelled();
     if (!doc) throw new Error("Every certificate failed to render.");
     return { blob: doc.output("blob"), filename: "certificates.pdf", count: made, failed };
   }
@@ -180,7 +184,9 @@ export async function runExport({
     try {
       const blob = await renderToBlob(template, fields, elements, at(i), settings);
       let name = `${fileNameFor(settings.filenamePattern, at(i), i)}.${extFor(settings.format)}`;
-      if (used.has(name)) name = name.replace(/(\.\w+)$/, `-${i + 1}$1`);
+      const base = name;
+      let suffix = 2;
+      while (used.has(name)) name = base.replace(/(\.\w+)$/, `-${suffix++}$1`);
       used.add(name);
       zip.file(name, blob);
       made += 1;
@@ -192,6 +198,7 @@ export async function runExport({
   }
   if (!made) throw new Error("Every certificate failed to render.");
   const blob = await zip.generateAsync({ type: "blob", compression: "DEFLATE" });
+  checkCancelled();
   return { blob, filename: "certificates.zip", count: made, failed };
 }
 

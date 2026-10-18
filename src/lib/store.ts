@@ -341,7 +341,19 @@ export const useStudio = create<StudioState>((set, get) => ({
 
   setDelivery: (delivery) => set({ delivery }),
   updateDelivery: (id, patch) =>
-    set((s) => ({ delivery: s.delivery.map((d) => (d.id === id ? { ...d, ...patch } : d)) })),
+    set((s) => {
+      const previous = s.delivery.find((d) => d.id === id);
+      const delivery = s.delivery.map((d) => (d.id === id ? { ...d, ...patch } : d));
+      const next = delivery.find((d) => d.id === id);
+      if (!previous || !next || !previous.batchId) return { delivery };
+      const batches = s.batches.map((b) => b.id === previous.batchId ? {
+        ...b,
+        sent: Math.max(0, b.sent + Number(next.status === "sent") - Number(previous.status === "sent")),
+        sendFailed: Math.max(0, b.sendFailed + Number(next.status === "failed") - Number(previous.status === "failed")),
+      } : b);
+      persist({ signatures: s.signatures, batches });
+      return { delivery, batches };
+    }),
   clearDelivery: () => set({ delivery: [] }),
 
   hydrate: () => {

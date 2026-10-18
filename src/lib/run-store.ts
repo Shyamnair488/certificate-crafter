@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { toast } from "sonner";
 import { runExport, downloadBlob } from "./exporters";
 import { useStudio } from "./store";
+import { validateRows } from "./validation";
 
 interface RunState {
   running: boolean;
@@ -39,6 +40,10 @@ export const useRun = create<RunState>((set, get) => ({
       toast.error("Place at least one field or element on the template.");
       return;
     }
+    if (validateRows(rows, fields, "").some((issue) => issue.id.startsWith("missing-"))) {
+      toast.error("Fill the missing certificate values before exporting. Check Preflight for details.");
+      return;
+    }
 
     const signal = { cancelled: false };
     const unsub = useRun.subscribe((s) => {
@@ -63,6 +68,7 @@ export const useRun = create<RunState>((set, get) => ({
           set({ done, failed, total: all, label: `Pressing certificate ${done + failed} of ${all}` }),
       });
       set({ label: "Packaging" });
+      if (signal.cancelled) throw new Error("cancelled");
       downloadBlob(result.blob, result.filename);
       addBatch({
         id,

@@ -1,4 +1,5 @@
 import type { CertField, RecordRow } from "./types";
+import { measureField } from "./text-layout";
 
 export type IssueLevel = "error" | "warning";
 
@@ -172,11 +173,14 @@ export function testLayout(
 
     for (const sample of NAME_SAMPLES) {
       const text = field.uppercase ? sample.value.toUpperCase() : sample.value;
-      ctx.font = `${field.italic ? "italic " : ""}${field.fontWeight} ${field.fontSize}px "${field.fontFamily}", serif`;
-      const width = ctx.measureText(text).width;
+      ctx.save();
+      const measured = measureField(ctx, field, text, templateWidth);
+      ctx.restore();
+      if (measured.overflow) findings.push({ id: `${field.id}-${sample.id}-overflow`, level: "error", field: field.label, sample: sample.label,
+        message: "Text exceeds its box even at the minimum size. Widen the box or shorten the value." });
 
       if (field.autoShrink) {
-        const ratio = width > boxW ? boxW / width : 1;
+        const ratio = measured.size / field.fontSize;
         if (ratio < 0.55) {
           findings.push({
             id: `${field.id}-${sample.id}-shrink`,
@@ -195,7 +199,7 @@ export function testLayout(
           });
         }
       } else {
-        const lines = Math.max(1, Math.ceil(width / boxW));
+        const lines = measured.lines.length;
         worstLines = Math.max(worstLines, lines);
         if (lines > 2) {
           findings.push({
@@ -236,8 +240,9 @@ export function testLayout(
 
   for (let i = 0; i < boxes.length; i += 1) {
     for (let j = i + 1; j < boxes.length; j += 1) {
-      const a = boxes[i]!;
-      const b = boxes[j]!;
+      const a = boxes[i];
+      const b = boxes[j];
+      if (!a || !b) continue;
       const overlapX = Math.min(a.box.right, b.box.right) - Math.max(a.box.left, b.box.left);
       const overlapY = Math.min(a.box.bottom, b.box.bottom) - Math.max(a.box.top, b.box.top);
       if (overlapX > 0.01 && overlapY > 0.005) {

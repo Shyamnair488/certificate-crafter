@@ -1,5 +1,6 @@
 import { ensureFontsReady } from "./fonts";
 import { qrDataUrl } from "./qr";
+import { measureField } from "./text-layout";
 import type { CertElement, CertField, RecordRow, TemplateAsset } from "./types";
 
 
@@ -59,9 +60,6 @@ export function drawFields(
     const text = fieldValue(field, row);
     if (!text) continue;
 
-    const boxW = field.boxWidth * template.width * scale;
-    let size = field.fontSize * scale;
-
     ctx.save();
     ctx.globalAlpha = field.opacity;
     ctx.fillStyle = field.color;
@@ -72,17 +70,7 @@ export function drawFields(
         `${field.letterSpacing * scale}px`;
     }
 
-    ctx.font = fontString(field, size);
-    if (field.autoShrink) {
-      let guard = 0;
-      while (ctx.measureText(text).width > boxW && size > 6 && guard < 200) {
-        size -= Math.max(0.5, size * 0.03);
-        ctx.font = fontString(field, size);
-        guard += 1;
-      }
-    }
-
-    const lines = field.autoShrink ? [text] : wrap(ctx, text, boxW);
+    const { size, lines } = measureField(ctx, field, text, template.width, scale);
     const lineHeight = size * field.lineHeight;
     const anchorX =
       field.align === "left"
