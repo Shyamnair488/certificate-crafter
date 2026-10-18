@@ -64,7 +64,7 @@ export function DataPanel() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <div className="label-mono">Step 3 — Recipients</div>
+        <div className="label-mono">Step 4 — Recipients</div>
         <span className="text-xs text-muted-foreground">{rows.length} record{rows.length === 1 ? "" : "s"}</span>
       </div>
 

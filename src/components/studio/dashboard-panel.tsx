@@ -11,14 +11,13 @@ function when(ts: number) {
 
 export function DashboardPanel() {
   const batches = useStudio((s) => s.batches);
-  const delivery = useStudio((s) => s.delivery);
   const removeBatch = useStudio((s) => s.removeBatch);
   const clearBatches = useStudio((s) => s.clearBatches);
   const updateBatch = useStudio((s) => s.updateBatch);
 
   const generated = batches.reduce((n, b) => n + b.generated, 0);
   const failed = batches.reduce((n, b) => n + b.failed + b.sendFailed, 0);
-  const sent = batches.reduce((n, b) => n + b.sent, 0) + delivery.filter((d) => d.status === "sent").length;
+  const sent = batches.reduce((n, b) => n + b.sent, 0);
   const verified = batches.reduce((n, b) => n + b.verified, 0);
 
   return (

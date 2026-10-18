@@ -102,10 +102,11 @@ export interface BatchRecord {
   verified: number;
 }
 
-export type DeliveryStatus = "pending" | "sending" | "sent" | "failed";
+export type DeliveryStatus = "pending" | "sending" | "sent" | "failed" | "stopped";
 
 export interface DeliveryEntry {
   id: string;
+  batchId?: string;
   rowId: string;
   to: string;
   name: string;

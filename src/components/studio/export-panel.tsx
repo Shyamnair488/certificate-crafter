@@ -13,7 +13,7 @@ export function ExportPanel() {
 
   return (
     <div className="space-y-4">
-      <div className="label-mono">Step 4 — Export</div>
+      <div className="label-mono">Step 6 — Export</div>
 
       <div>
         <span className="label-mono">Format</span>
