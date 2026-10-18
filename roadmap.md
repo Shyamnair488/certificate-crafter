@@ -24,3 +24,9 @@
 - [x] Case-insensitive/trimmed column matching on import
 - [x] Recipient stepper in preview
 - [x] noscript message
+
+## Completion and installation repair (Oct 18)
+- [ ] Regenerate the out-of-sync npm lockfile and verify a clean dependency installation
+- [ ] Fix remaining concrete workflow defects and inconsistent step headings
+- [ ] Verify certificate exports, project save/open, validation, and narrow-screen controls
+- [ ] Review final application errors and document deployment limitations
