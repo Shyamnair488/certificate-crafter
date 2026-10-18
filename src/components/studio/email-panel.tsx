@@ -28,6 +28,7 @@ export function EmailPanel() {
   const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
   async function deliver(targets: RecordRow[], entries: DeliveryEntry[]): Promise<void> {
+    if (sending) return;
     if (!template) { toast.error("Add a certificate template first."); return; }
     if (!fields.length && !elements.length) { toast.error("Place at least one field on the template."); return; }
     if (!configured) { toast.error("Add your service ID, template ID and public key."); return; }
@@ -40,8 +41,9 @@ export function EmailPanel() {
     let bad = 0;
     for (let i = 0; i < targets.length; i += 1) {
       if (stopRef.current) break;
-      const row = targets[i]!;
-      const entry = entries[i]!;
+      const row = targets[i];
+      const entry = entries[i];
+      if (!row || !entry) continue;
       if (!EMAIL_RE.test(entry.to)) {
         updateDelivery(entry.id, { status: "failed", error: "Invalid or missing email address", at: Date.now() });
         bad += 1;
@@ -50,6 +52,7 @@ export function EmailPanel() {
       updateDelivery(entry.id, { status: "sending", error: undefined, at: Date.now() });
       try {
         const blob = await renderToBlob(template, fields, elements, row, { ...settings, format: email.attachFormat });
+        if (stopRef.current) { updateDelivery(entry.id, { status: "stopped" }); break; }
         const base64 = await blobToBase64(blob);
         const name = `${fileNameFor(settings.filenamePattern, row, i)}.${extFor(email.attachFormat)}`;
         const res: SendResult = await sendCertificateEmail(email, row, base64, name);
@@ -61,8 +64,15 @@ export function EmailPanel() {
       }
       if (delay && i < targets.length - 1) await new Promise((r) => setTimeout(r, delay * 1000));
     }
+    if (stopRef.current) {
+      for (const entry of entries) {
+        const current = useStudio.getState().delivery.find((d) => d.id === entry.id);
+        if (current?.status === "pending" || current?.status === "sending") updateDelivery(entry.id, { status: "stopped" });
+      }
+    }
     setSending(false);
-    if (!bad) toast.success(`${ok} email${ok === 1 ? "" : "s"} sent.`);
+    if (stopRef.current) toast(`Sending stopped. ${ok} sent; remaining recipients can be resumed.`);
+    else if (!bad) toast.success(`${ok} email${ok === 1 ? "" : "s"} sent.`);
     else toast.error(`${ok} sent, ${bad} failed — use “Retry failed”.`);
   }
 
@@ -78,14 +88,25 @@ export function EmailPanel() {
   }
 
   function send(all: boolean) {
+    if (sending) return;
+    if (!configured || !template || (!fields.length && !elements.length)) {
+      toast.error("Add a template, certificate fields, and EmailJS settings before sending.");
+      return;
+    }
     const targets = all ? rows : previewRow ? [previewRow] : [];
+    if (!targets.length) { toast.error("Add at least one recipient row."); return; }
     const entries = targets.map(entryFor);
+    const batchId = Math.random().toString(36).slice(2, 10);
+    useStudio.getState().addBatch({ id: batchId, createdAt: Date.now(), name: `${template.name} — email`,
+      format: email.attachFormat, mode: "zip", total: targets.length, generated: 0, failed: 0,
+      cancelled: false, sent: 0, sendFailed: 0, verified: 0 });
+    for (const entry of entries) entry.batchId = batchId;
     setDelivery(entries);
     void deliver(targets, entries);
   }
 
   function retryFailed() {
-    const failed = delivery.filter((d) => d.status === "failed");
+    const failed = delivery.filter((d) => d.status === "failed" || d.status === "stopped");
     const targets: RecordRow[] = [];
     const entries: DeliveryEntry[] = [];
     for (const d of failed) {
@@ -110,8 +131,8 @@ export function EmailPanel() {
       <div>
         <div className="label-mono">Email delivery (optional)</div>
         <p className="mt-1 text-[12px] leading-relaxed text-muted-foreground">
-          Everything is sent straight from your browser using your own EmailJS account. Your keys are
-          never stored or uploaded anywhere.
+          EmailJS receives your recipients, message, attachment and account keys to send email.
+          Keys remain in this tab and are excluded from saved projects. “Sent” means accepted by EmailJS, not confirmed delivered.
         </p>
       </div>
 
@@ -213,10 +234,7 @@ export function EmailPanel() {
           </button>
         </div>
         {showPreview ? (
-          <div
-            className="mt-1 max-h-64 overflow-auto rounded-md border border-border bg-paper p-2"
-            dangerouslySetInnerHTML={{ __html: fillTemplate(email.html, previewRow) }}
-          />
+          <iframe title="Email preview" sandbox="" referrerPolicy="no-referrer" className="mt-1 h-64 w-full rounded-md border border-border bg-paper" srcDoc={fillTemplate(email.html, previewRow)} />
         ) : (
           <textarea
             className="field-input mt-1 h-40 font-mono text-[11px]"
@@ -253,7 +271,7 @@ export function EmailPanel() {
 
       {sending && (
         <button onClick={() => (stopRef.current = true)} className="w-full rounded-md border border-border px-4 py-2 text-xs font-medium hover:bg-secondary">
-          Stop sending
+          Stop after current email
         </button>
       )}
 
@@ -261,9 +279,9 @@ export function EmailPanel() {
         <div className="rounded-md border border-border bg-paper p-2">
           <div className="flex items-center justify-between">
             <span className="label-mono">Delivery tracking</span>
-            {counts.failed > 0 && !sending && (
+            {(counts.failed > 0 || delivery.some((d) => d.status === "stopped")) && !sending && (
               <button onClick={retryFailed} className="text-[11px] font-medium text-primary hover:underline">
-                Retry failed ({counts.failed})
+                Retry failed / resume ({delivery.filter((d) => d.status === "failed" || d.status === "stopped").length})
               </button>
             )}
           </div>
