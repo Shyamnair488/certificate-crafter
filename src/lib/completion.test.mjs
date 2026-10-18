@@ -31,7 +31,8 @@ test("batch delivery transitions do not double count sends and retries clear fai
 });
 
 test("unbroken long names are reported as overflow and shrinking respects print scale", () => {
-  const ctx = { font: "", letterSpacing: "0px", measureText(text: string) { return { width: text.length * Number.parseFloat(this.font.split(" ")[1] ?? "10") }; } } as unknown as CanvasRenderingContext2D;
+  const mock = { font: "", letterSpacing: "0px", measureText(text) { return { width: text.length * Number.parseFloat(this.font.split(" ")[1] ?? "10") }; } };
+  const ctx = mock;
   const field = makeField({ fontSize: 20, boxWidth: 0.1, autoShrink: false });
   expect(measureField(ctx, field, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", 100).overflow).toBe(true);
   const shrunk = measureField(ctx, { ...field, autoShrink: true }, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", 100, 4);
