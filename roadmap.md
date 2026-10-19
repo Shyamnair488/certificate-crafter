@@ -26,7 +26,11 @@
 - [x] noscript message
 
 ## Completion and installation repair (Oct 18)
-- [ ] Regenerate the out-of-sync npm lockfile and verify a clean dependency installation
-- [ ] Fix remaining concrete workflow defects and inconsistent step headings
-- [ ] Verify certificate exports, project save/open, validation, and narrow-screen controls
-- [ ] Review final application errors and document deployment limitations
+- [x] Regenerate the out-of-sync npm lockfile and verify a clean dependency installation
+- [x] Fix remaining concrete workflow defects and inconsistent step headings
+- [x] Verify certificate exports, project save/open, validation, and narrow-screen controls
+- [x] Review final application errors and document deployment limitations
+
+## External verification
+- [ ] Real EmailJS sending and inbox delivery — blocked by an unconfigured live EmailJS account and attachment template.
+- [ ] External Netlify deployment — blocked by unavailable access to the user's Netlify deployment; clean npm installation is verified locally.
