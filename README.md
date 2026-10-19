@@ -40,3 +40,11 @@ cd <repository-name>
 npm i
 npm run dev
 ```
+
+## Installation and deployment checks
+
+The npm lockfile was regenerated from the current manifest and verified with a clean `npm ci` in an isolated directory. Use `npm ci` for reproducible npm installations. Do not delete the running preview's shared node_modules directory. Netlify builds use `bun run build` and the production-only Netlify adapter in vite.config.ts.
+
+Regression tests: `bun test src/lib/completion.test.mjs`. Browser checks cover PDF/PNG/JPEG ZIP exports, merged PDF, project save/open, malformed project rejection, dashboard records, and narrow-screen controls.
+
+External Netlify deployment has not been executed here. Real email delivery requires the user's EmailJS service and an attachment-enabled template; it has not been verified with a live account. The app reports provider acceptance, not inbox delivery. Batch summaries and signatures persist on the device; per-recipient tracking is session-only. Saved projects exclude email credentials and uploaded font files.

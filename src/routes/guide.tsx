@@ -35,8 +35,8 @@ const STEPS = [
   },
   {
     n: "03",
-    title: "Choose your type",
-    body: "Pick from the built-in print-quality serif, sans and script families, pull in any Google Font by name, or upload your own TTF/OTF/WOFF file. Auto-shrink keeps long names inside the box.",
+    title: "Add logos, signatures and QR codes",
+    body: "Upload your logo and authorized signatures, or add a QR code with recipient placeholders. Place each item on the proof. Saved signatures stay on this device; the same placed signature appears throughout a batch.",
   },
   {
     n: "04",
@@ -45,13 +45,23 @@ const STEPS = [
   },
   {
     n: "05",
+    title: "Check the roster and long names",
+    body: "Preflight identifies missing field values, duplicate recipients and invalid emails. Test short, medium and very long names before export. Fill missing certificate values before generating.",
+  },
+  {
+    n: "06",
     title: "Export the run",
     body: "PDF, PNG or JPEG at up to 4× print scale. One recipient gives you a single file; many gives you a ZIP, or one merged multi-page PDF. File names follow your own pattern, e.g. {name}-certificate.",
   },
   {
-    n: "06",
+    n: "07",
     title: "Email them out (optional)",
-    body: "Connect your own EmailJS service and send personalised HTML emails with the certificate attached. Your keys stay in the browser tab and are never stored.",
+    body: "Connect your own EmailJS service and attachment-enabled template. EmailJS receives the message, attachment, recipients and account keys. Sent means accepted by EmailJS, not confirmed delivered. Stop after the current email, then retry failures or resume stopped recipients.",
+  },
+  {
+    n: "08",
+    title: "Review batch history",
+    body: "Review generated, sent and failed counts in Dashboard. Verified is a manual review flag, not an authenticity check. History and signatures remain on this device; recipient delivery details remain in the current session.",
   },
 ];
 
@@ -62,11 +72,11 @@ const FAQ = [
   },
   {
     q: "Where does my data go?",
-    a: "Nowhere. Templates, spreadsheets and rendering all happen inside your browser. There is no server and no database.",
+    a: "Templates, spreadsheets and certificate rendering stay in your browser. Signatures and batch summaries are saved on this device. Emailing sends recipient data, attachments and your account keys to EmailJS. Google Fonts requests go to Google. Saved projects exclude email keys; uploaded fonts must be uploaded again after reopening.",
   },
   {
     q: "How many certificates can I run?",
-    a: "Hundreds. The run shows live progress and can be cancelled at any point.",
+    a: "Capacity depends on your device, template resolution and export format. Start with a small batch. Live progress shows completed and failed counts; cancellation prevents the final download but cannot interrupt a render already underway.",
   },
   {
     q: "What should my spreadsheet look like?",
